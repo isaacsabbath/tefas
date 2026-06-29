@@ -1,65 +1,79 @@
 {% extends 'base.html' %}
 {% block title %}Checkout | Tefas Pharmacy{% endblock %}
 {% block content %}
-  <section class="grid gap-6 lg:grid-cols-[1fr_0.85fr]">
-    <div class="space-y-6">
-      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">Checkout</p>
-        <h1 class="mt-2 text-3xl font-black text-slate-900">Confirm delivery and pay with M-Pesa</h1>
+  <section class="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_60px_rgba(16,24,40,0.08)] md:p-8" {% if pending_order %}data-pending-order-number="{{ pending_order.order_number }}" data-order-status-url="{% url 'orders:status' pending_order.order_number %}" data-order-confirmation-url="{% url 'orders:confirmation' pending_order.order_number %}"{% endif %}>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-700">Checkout Page</p>
+        <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Complete your order with M-Pesa</h1>
+      </div>
+      <div class="rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900">Total: KSh {{ cart.total_amount }}</div>
+    </div>
+
+    <div class="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div class="space-y-6">
+        <div class="rounded-3xl border border-emerald-100 p-5">
+          <h2 class="text-lg font-bold text-slate-950">Order Summary</h2>
+          <ul class="mt-4 space-y-3 text-sm text-slate-700">
+            {% for item in items %}
+              <li class="flex items-center justify-between gap-4">
+                <span>{{ item.product.name }} x {{ item.quantity }}</span>
+                <strong>KSh {{ item.line_total }}</strong>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        {% if payment_error %}
+          <div class="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">
+            <p id="payment-state-message">{{ payment_error }}</p>
+            {% if pending_order %}
+              <form action="{% url 'orders:retry_payment' pending_order.order_number %}" method="post" class="mt-4">
+                {% csrf_token %}
+                <button type="submit" class="rounded-2xl bg-rose-700 px-4 py-3 text-sm font-semibold text-white">Retry payment</button>
+              </form>
+            {% endif %}
+          </div>
+        {% elif waiting_for_payment and pending_order %}
+          <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
+            <p id="payment-state-message">Check your phone to complete payment. We are waiting for the M-Pesa confirmation now.</p>
+          </div>
+        {% endif %}
       </div>
 
-      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <h2 class="text-lg font-bold text-slate-900">Delivery details</h2>
-        <form method="post" class="mt-6 space-y-6">
+      <div class="rounded-3xl border border-emerald-100 p-5">
+        <h2 class="text-lg font-bold text-slate-950">Delivery and Payment</h2>
+        <form method="post" class="mt-4 space-y-5">
           {% csrf_token %}
           {% if pending_order %}
             <input type="hidden" name="pending_order_number" value="{{ pending_order.order_number }}">
           {% endif %}
-          <div class="space-y-4">
-            {% include 'partials/form_field.html' with field=form.delivery_method %}
-            {% include 'partials/form_field.html' with field=form.delivery_address %}
-            {% include 'partials/form_field.html' with field=form.pickup_location %}
-            {% include 'partials/form_field.html' with field=form.phone_number %}
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-slate-700">Delivery method</label>
+            <div class="space-y-2">{{ form.delivery_method }}</div>
           </div>
-          <button class="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700">PAY WITH MPESA</button>
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-slate-700" for="id_delivery_address">Delivery address</label>
+            {{ form.delivery_address }}
+            {% if form.delivery_address.errors %}<p class="text-sm text-rose-600">{{ form.delivery_address.errors|striptags }}</p>{% endif %}
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-slate-700" for="id_pickup_location">Pickup location</label>
+            {{ form.pickup_location }}
+            {% if form.pickup_location.errors %}<p class="text-sm text-rose-600">{{ form.pickup_location.errors|striptags }}</p>{% endif %}
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-slate-700" for="id_phone_number">Confirm phone number</label>
+            {{ form.phone_number }}
+            {% if form.phone_number.errors %}<p class="text-sm text-rose-600">{{ form.phone_number.errors|striptags }}</p>{% endif %}
+          </div>
+          {% if form.non_field_errors %}
+            <p class="text-sm text-rose-600">{{ form.non_field_errors|striptags }}</p>
+          {% endif %}
+          <button type="submit" class="w-full rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-emerald-800">Pay with M-Pesa</button>
         </form>
-
-        {% if payment_error %}
-          <div class="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-            <p class="font-semibold">Payment error</p>
-            <p class="mt-2">{{ payment_error }}</p>
-            {% if pending_order %}
-              <form action="{% url 'orders:retry_payment' pending_order.order_number %}" method="post" class="mt-4">
-                {% csrf_token %}
-                <button class="rounded-2xl bg-rose-700 px-4 py-2 font-semibold text-white">Retry payment</button>
-              </form>
-            {% endif %}
-          </div>
-        {% endif %}
-
-        {% if waiting_for_payment and pending_order %}
-          <div class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" data-poll-order-status data-status-url="{% url 'orders:status' pending_order.order_number %}" data-confirmation-url="{% url 'orders:confirmation' pending_order.order_number %}">
-            <p class="font-semibold">Check your phone to complete payment.</p>
-            <p class="mt-2">We are waiting for the M-Pesa STK Push confirmation.</p>
-          </div>
-        {% endif %}
       </div>
     </div>
-
-    <aside class="space-y-4 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-      <h2 class="text-lg font-bold text-slate-900">Order summary</h2>
-      <div class="space-y-3 text-sm text-slate-600">
-        {% for item in items %}
-          <div class="flex items-start justify-between gap-4">
-            <span>{{ item.product.name }} x {{ item.quantity }}</span>
-            <span class="font-semibold text-slate-900">ksh {{ item.line_total }}</span>
-          </div>
-        {% endfor %}
-      </div>
-      <div class="border-t border-slate-200 pt-4">
-        <div class="flex items-center justify-between text-sm"><span>Total amount</span><span class="font-bold text-emerald-800">ksh {{ cart.total_amount }}</span></div>
-      </div>
-    </aside>
   </section>
 {% endblock %}
 
@@ -67,10 +81,11 @@
   {% if waiting_for_payment and pending_order %}
     <script>
       (function() {
-        const box = document.querySelector('[data-poll-order-status]');
-        if (!box) return;
-        const statusUrl = box.dataset.statusUrl;
-        const confirmationUrl = box.dataset.confirmationUrl;
+        const section = document.querySelector('[data-order-status-url]');
+        if (!section) return;
+        const statusUrl = section.dataset.orderStatusUrl;
+        const confirmationUrl = section.dataset.orderConfirmationUrl;
+        const messageEl = document.getElementById('payment-state-message');
 
         async function poll() {
           try {
@@ -79,8 +94,8 @@
             if (payload.payment_status === 'paid' && payload.redirect_url) {
               window.location.href = confirmationUrl;
             }
-            if (payload.payment_status === 'failed') {
-              box.innerHTML = '<p class="font-semibold">Payment failed. Please retry.</p>';
+            if (payload.payment_status === 'failed' && messageEl) {
+              messageEl.textContent = 'Payment failed. Please retry.';
             }
           } catch (error) {
             console.error(error);
@@ -92,80 +107,4 @@
       })();
     </script>
   {% endif %}
-{% endblock %}{% extends 'base.html' %}
-
-{% block title %}Checkout | Tefas Pharmacy{% endblock %}
-
-{% block content %}
-    <section class="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-[0_18px_60px_rgba(16,24,40,0.08)] md:p-8" {% if pending_order %}data-pending-order-number="{{ pending_order.order_number }}" data-order-status-url="{% url 'orders:status' pending_order.order_number %}" data-order-confirmation-url="{% url 'orders:confirmation' pending_order.order_number %}"{% endif %}>
-        <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-                <p class="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-700">Checkout Page</p>
-                <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Complete your order with M-Pesa</h1>
-            </div>
-            <div class="rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900">Total: KSh {{ cart.total_amount }}</div>
-        </div>
-
-        <div class="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div class="space-y-6">
-                <div class="rounded-3xl border border-emerald-100 p-5">
-                    <h2 class="text-lg font-bold text-slate-950">Order Summary</h2>
-                    <ul class="mt-4 space-y-3 text-sm text-slate-700">
-                        {% for item in items %}
-                            <li class="flex items-center justify-between gap-4">
-                                <span>{{ item.product.name }} x {{ item.quantity }}</span>
-                                <strong>KSh {{ item.line_total }}</strong>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-
-                {% if payment_error %}
-                    <div class="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">
-                        <p id="payment-state-message">{{ payment_error }}</p>
-                        {% if pending_order %}
-                            <form action="{% url 'orders:retry_payment' pending_order.order_number %}" method="post" class="mt-4">
-                                {% csrf_token %}
-                                <button type="submit" class="rounded-2xl bg-rose-700 px-4 py-3 text-sm font-semibold text-white">Retry payment</button>
-                            </form>
-                        {% endif %}
-                    </div>
-                {% elif waiting_for_payment and pending_order %}
-                    <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
-                        <p id="payment-state-message">Check your phone to complete payment. We are waiting for the M-Pesa confirmation now.</p>
-                    </div>
-                {% endif %}
-            </div>
-
-            <div class="rounded-3xl border border-emerald-100 p-5">
-                <h2 class="text-lg font-bold text-slate-950">Delivery and Payment</h2>
-                <form method="post" class="mt-4 space-y-5">
-                    {% csrf_token %}
-                    <div class="space-y-2">
-                        <label class="text-sm font-semibold text-slate-700">Delivery method</label>
-                        <div class="space-y-2">{{ form.delivery_method }}</div>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-semibold text-slate-700" for="id_delivery_address">Delivery address</label>
-                        {{ form.delivery_address }}
-                        {% if form.delivery_address.errors %}<p class="text-sm text-rose-600">{{ form.delivery_address.errors|striptags }}</p>{% endif %}
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-semibold text-slate-700" for="id_pickup_location">Pickup location</label>
-                        {{ form.pickup_location }}
-                        {% if form.pickup_location.errors %}<p class="text-sm text-rose-600">{{ form.pickup_location.errors|striptags }}</p>{% endif %}
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-semibold text-slate-700" for="id_phone_number">Confirm phone number</label>
-                        {{ form.phone_number }}
-                        {% if form.phone_number.errors %}<p class="text-sm text-rose-600">{{ form.phone_number.errors|striptags }}</p>{% endif %}
-                    </div>
-                    {% if form.non_field_errors %}
-                        <p class="text-sm text-rose-600">{{ form.non_field_errors|striptags }}</p>
-                    {% endif %}
-                    <button type="submit" class="w-full rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-emerald-800">Pay with M-Pesa</button>
-                </form>
-            </div>
-        </div>
-    </section>
 {% endblock %}
