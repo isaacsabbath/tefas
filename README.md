@@ -1,4 +1,4 @@
-# Tefas Pharmacy
+#        Tefas Pharmacy
 
 Django e-commerce site for over-the-counter pharmacy products with M-Pesa checkout, delivery or pickup, and Django admin product/order management.
 
