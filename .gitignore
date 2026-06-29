@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+staticfiles/
+theme/static_src/node_modules/
+theme/static_src/.tailwind-cache/
+node_modules/

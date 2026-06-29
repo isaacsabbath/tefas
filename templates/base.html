@@ -1,0 +1,124 @@
+{% load static tailwind_tags %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tefas Pharmacy{% endblock %}</title>
+  {% tailwind_css %}
+</head>
+<body class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(52,153,90,0.16),_transparent_36%),linear-gradient(180deg,_#f6fff8_0%,_#ffffff_45%,_#f3f8f4_100%)] text-slate-900">
+  <header class="sticky top-0 z-30 border-b border-emerald-100/70 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+      <a href="{% url 'core:home' %}" class="text-lg font-black uppercase tracking-[0.22em] text-emerald-900 md:text-xl">
+        TEFAS PHARMACY E-COMMERCE WEBSITE
+      </a>
+      <form action="{% url 'core:home' %}" method="get" class="flex w-full max-w-xl gap-2">
+        <input type="search" name="q" value="{{ query|default:'' }}" placeholder="Search painkillers, vitamins, first aid..." class="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+        <button type="submit" class="rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800">OK</button>
+      </form>
+      <nav class="flex items-center gap-3 text-sm font-medium">
+        <a href="{% url 'cart:detail' %}" class="rounded-full border border-emerald-200 bg-white px-4 py-2 text-emerald-900 shadow-sm">
+          Cart <span id="cart-count-badge" class="ml-1 rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-semibold text-white">{{ cart_count|default:0 }}</span>
+        </a>
+        {% if user.is_authenticated %}
+          <a href="{% url 'accounts:profile' %}" class="text-emerald-900">Hi, {{ user.first_name|default:user.username }}</a>
+          <form action="{% url 'accounts:logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="rounded-full bg-slate-900 px-4 py-2 text-white">Logout</button>
+          </form>
+        {% else %}
+          <a href="{% url 'accounts:login' %}" class="rounded-full bg-slate-900 px-4 py-2 text-white">Login</a>
+          <a href="{% url 'accounts:register' %}" class="rounded-full border border-slate-300 bg-white px-4 py-2 text-slate-900">Register</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto w-full max-w-7xl px-4 py-8 md:px-6">
+    {% include 'partials/messages.html' %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <script>
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return '';
+    }
+
+    async function postForm(form) {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: new FormData(form),
+      });
+
+      if (response.redirected) {
+        window.location.href = response.url;
+        return;
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        if (data.cart_count !== undefined) {
+          const badge = document.getElementById('cart-count-badge');
+          if (badge) {
+            badge.textContent = data.cart_count;
+          }
+        }
+        if (data.redirect_url) {
+          window.location.href = data.redirect_url;
+        }
+        return;
+      }
+
+      const html = await response.text();
+      document.open();
+      document.write(html);
+      document.close();
+    }
+
+    document.addEventListener('submit', (event) => {
+      const form = event.target.closest('form.js-add-to-cart');
+      if (!form) {
+        return;
+      }
+      event.preventDefault();
+      postForm(form);
+    });
+
+    async function pollPendingOrder() {
+      const checkoutBox = document.querySelector('[data-pending-order-number]');
+      if (!checkoutBox) {
+        return;
+      }
+
+      const statusUrl = checkoutBox.dataset.orderStatusUrl;
+      const redirectUrl = checkoutBox.dataset.orderConfirmationUrl;
+      const errorBox = document.getElementById('payment-state-message');
+      const response = await fetch(statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const data = await response.json();
+
+      if (data.payment_status === 'paid' && redirectUrl) {
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      if (data.payment_status === 'failed' && errorBox) {
+        errorBox.textContent = 'Payment failed. You can retry from the button below.';
+      }
+    }
+
+    if (document.querySelector('[data-pending-order-number]')) {
+      pollPendingOrder();
+      setInterval(pollPendingOrder, 3000);
+    }
+  </script>
+</body>
+</html>
